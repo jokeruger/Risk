@@ -91,6 +91,7 @@ int attacking = 3;
 int defending = 2;
 int phase = 0;
 int turn = 0;
+int id1 = -1;
 
 unsigned char black[]	= {0,	0,	0};
 unsigned char white[]	= {255,	255,255};
@@ -112,14 +113,17 @@ Player players[7] = {Player(), Player(), Player(), Player(), Player(), Player(),
 
 
 int getCountryId(int x, int y, int n){
+	//returns 100 for white (continue button)
+	
 	int xOriginal = x;
 	int yOriginal = y;
 //	cout << x << "," << y << " " << n <<endl;
+	
+	//search around
 	bool vertical = (n%2==1);
 	bool positive = (((n%4)/2)==1);
 	int	 distance = (n+3)/4;
 //	cout << "vertical " << vertical << "  positive " << positive << "  distance " << distance << endl;
-	
 	if (n>0){
 		if (vertical){
 			if (positive)
@@ -137,6 +141,10 @@ int getCountryId(int x, int y, int n){
 		int r = (int)image(x,y,0,0);
 		int g = (int)image(x,y,0,1);
 		int b = (int)image(x,y,0,2);
+//		cout << r << ", " << g << ", " << b << endl;
+		if (r==255 && g==255 && b==255) {
+			return 100;
+		}
 		for (int i=0; i<numberOfCountries; i++){
 			if (countries[i].getR()==r && countries[i].getG()==g && countries[i].getB()==b) {
 				return i;
@@ -178,6 +186,12 @@ void refreshMap(){
 			break;
 	}
 	
+	if (phase==2 || phase==3 || phase==4) {
+		for (int i=0; i<45; i++) {
+			image.draw_circle(menuX+15+i, menuY+80, radius*1.2, white, 1);
+		}
+		image.draw_text(menuX+11, menuY+74, " Continue ", black);
+	}
 	
 	int size;
 	for (int i=0; i< numberOfCountries; i+=1) {
@@ -818,140 +832,154 @@ int game()
 	startGame();
 
 	while (!main_disp.is_closed()) {
-		main_disp.wait();
-		
-		//advance to next phase/turn
-		if (phase!=1 && main_disp.is_keySPACE()) {
-			if (phase==4) {
-				phase = 1;
-				do {
-					turn = turn + 1;
-					if (turn==7) turn = 1;
-				} while (!players[turn].isAlive());
-				cout << " - Player " << turn << "'s turn - " << endl;
-			}
-			else phase = phase + 1;
-			refreshMap();
-		}
 		
 		//place armies
 		if (phase==1){
 			placeArmies(turn);
 		}
 		
-		
-		//attack phase
-		//still needs non-max attack logic
-		if (phase==3 && main_disp.button() && main_disp.mouse_y()>=0) {
+		main_disp.wait();
+		if (main_disp.button() && main_disp.mouse_y()>=0) {
 			const int x = main_disp.mouse_x();
 			const int y = main_disp.mouse_y();
-			int id1 = getCountryId(x, y, 0);
+			id1 = getCountryId(x, y, 0);
 			
-			if (countries[id1].getOwner() != turn) {
-				continue;
+			//continue button
+			if (id1==100) {
+				//advance to next phase/turn
+				if (phase==4) {
+					//this code is also in phase 4's section
+					phase = 1;
+					do {
+						turn = turn + 1;
+						if (turn==7) turn = 1;
+					} while (!players[turn].isAlive());
+					cout << " - Player " << turn << "'s turn - " << endl;
+				}
+				else phase = phase + 1;
+				refreshMap();
+				
+//				phase=4;
+//				refreshMap();
+//				continue;
 			}
 			
-			cout << countries[id1].getName() << " (" << countries[id1].getArmies()<< ") attacking: " << endl;
-			while (!main_disp.is_closed()) {
-				main_disp.wait();
-				if (main_disp.button() && main_disp.mouse_y()>=0) {
-					const int x = main_disp.mouse_x();
-					const int y = main_disp.mouse_y();
-					int id2 = getCountryId(x, y, 0);
-					
-					//same country
-					if (id2 == id1){
-						continue;
-					}
-					
-					//legal attack
-					else if (countries[id1].getOwner() != countries[id2].getOwner() && countries[id1].getArmies() > 1) {
-						cout << countries[id2].getName() << " (" << countries[id2].getArmies() << ")" << endl;
-						attacking = countries[id1].getArmies()-1;
-						defending = countries[id2].getArmies();
+			//attack phase
+			//still needs non-max attack logic
+			if (phase==3) {
+				//not your country
+				if (countries[id1].getOwner() != turn) {
+					continue;
+				}
+				
+				cout << countries[id1].getName() << " (" << countries[id1].getArmies()<< ") attacking: " << endl;
+				while (!main_disp.is_closed()) {
+					main_disp.wait();
+					if (main_disp.button() && main_disp.mouse_y()>=0) {
+						const int x = main_disp.mouse_x();
+						const int y = main_disp.mouse_y();
+						int id2 = getCountryId(x, y, 0);
 						
-						//not-max attackers decision will go here
-						
-						tuple<char, int> result = decideRolls(attacking, defending);
-						if (get<0>(result)=='X') {
-							cout << "Both players lose 1 army" << endl << endl;
-							if (countries[id2].getArmies()==1) {
-								countries[id2].setOwner(countries[id1].getOwner());
-								countries[id2].setArmies(attacking);
-								countries[id1].setArmies(countries[id1].getArmies()-attacking);
-							}
-							else {
-								countries[id1].subArmies(1);
-								countries[id2].subArmies(1);
-							}
+						//same country
+						if (id2 == id1){
+							continue;
 						}
-						else {
-							int deaths = get<1>(result);
-							cout << "Player " << get<0>(result) << " loses " << deaths << endl << endl;
-							if (get<0>(result)=='D'){
-								if (countries[id2].getArmies()==deaths) {
+						
+						//legal attack
+						else if (countries[id1].getOwner() != countries[id2].getOwner() && countries[id1].getArmies() > 1) {
+							cout << countries[id2].getName() << " (" << countries[id2].getArmies() << ")" << endl;
+							attacking = countries[id1].getArmies()-1;
+							defending = countries[id2].getArmies();
+							
+							//not-max attackers decision will go here
+							
+							tuple<char, int> result = decideRolls(attacking, defending);
+							if (get<0>(result)=='X') {
+								cout << "Both players lose 1 army" << endl << endl;
+								if (countries[id2].getArmies()==1) {
 									countries[id2].setOwner(countries[id1].getOwner());
 									countries[id2].setArmies(attacking);
 									countries[id1].setArmies(countries[id1].getArmies()-attacking);
 								}
-								else countries[id2].subArmies(deaths);
+								else {
+									countries[id1].subArmies(1);
+									countries[id2].subArmies(1);
+								}
 							}
 							else {
-								countries[id1].subArmies(deaths);
+								int deaths = get<1>(result);
+								cout << "Player " << get<0>(result) << " loses " << deaths << endl << endl;
+								if (get<0>(result)=='D'){
+									if (countries[id2].getArmies()==deaths) {
+										countries[id2].setOwner(countries[id1].getOwner());
+										countries[id2].setArmies(attacking);
+										countries[id1].setArmies(countries[id1].getArmies()-attacking);
+									}
+									else countries[id2].subArmies(deaths);
+								}
+								else {
+									countries[id1].subArmies(deaths);
+								}
 							}
+							
+							break;
 						}
 						
+						cout << " Can't attack";
+						if (countries[id1].getOwner() == countries[id2].getOwner())
+							cout << " your own country!" << endl;
+						else if (countries[id1].getArmies() == 1)
+							cout << ", not enough armies!" << endl;
 						break;
+						
 					}
-					
-					cout << " Can't attack";
-					if (countries[id1].getOwner() == countries[id2].getOwner())
-						cout << " your own country!" << endl;
-					else if (countries[id1].getArmies() == 1)
-						cout << ", not enough armies!" << endl;
-					break;
-					
 				}
-			}
-			refreshMap();
-		}
-		
-		//tactical
-		//needs chain of borders
-		if (phase==4 && main_disp.button() && main_disp.mouse_y()>=0) {
-			const int x = main_disp.mouse_x();
-			const int y = main_disp.mouse_y();
-			int id1 = getCountryId(x, y, 0);
-			
-			if (countries[id1].getOwner() != turn) {
-				continue;
+				refreshMap();
 			}
 			
-			cout << "Move armies from " << countries[id1].getName() << " to: " << endl;
-			while (!main_disp.is_closed()) {
-				main_disp.wait();
-				if (main_disp.is_keySPACE()) {
-					break;
+			
+			//tactical
+			//needs chain of borders
+			if (phase==4) {
+				if (countries[id1].getOwner() != turn) {
+					continue;
 				}
-				if (main_disp.button() && main_disp.mouse_y()>=0) {
-					const int x = main_disp.mouse_x();
-					const int y = main_disp.mouse_y();
-					int id2 = getCountryId(x, y, 0);
-					
-					//same country
-					if (id2 == id1){
-						continue;
-					}
-					
-					//legal move
-					//still needs chain of borders
-					else if (countries[id1].getOwner() == countries[id2].getOwner() && countries[id1].getArmies() > 1) {
-						countries[id1].subArmies(1);
-						countries[id2].addArmies(1);
-						refreshMap();
+				
+				cout << "Move armies from " << countries[id1].getName() << " to: " << endl;
+				while (!main_disp.is_closed()) {
+					main_disp.wait();
+					if (main_disp.button() && main_disp.mouse_y()>=0) {
+						const int x = main_disp.mouse_x();
+						const int y = main_disp.mouse_y();
+						int id2 = getCountryId(x, y, 0);
+						
+						if (id2==100) {
+							break;
+						}
+						//same country
+						if (id2 == id1){
+							continue;
+						}
+						
+						//legal move
+						//still needs chain of borders
+						else if (countries[id1].getOwner() == countries[id2].getOwner() && countries[id1].getArmies() > 1) {
+							countries[id1].subArmies(1);
+							countries[id2].addArmies(1);
+							refreshMap();
+						}
 					}
 				}
+				phase = 1;
+				do {
+					turn = turn + 1;
+					if (turn==7) turn = 1;
+				} while (!players[turn].isAlive());
+				cout << " - Player " << turn << "'s turn - " << endl;
+				refreshMap();
 			}
+
+			
 		}
 	}
 
