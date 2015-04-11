@@ -825,10 +825,231 @@ void placeArmies(int player){
 	refreshMap();
 }
 
+bool bTouching(string c1, string c2) {
+	//North America
+	if (c1=="Alaska") {
+		if (c2=="Kamchatka" || c2=="Northwest Territory" || c2=="Alberta") {
+			return true;
+		}
+	}
+	if (c1=="Northwest Territory") {
+		if (c2=="Akaska" || c2=="Alberta" || c2=="Ontario" || c2=="Greenland") {
+			return true;
+		}
+	}
+	if (c1=="Greenland") {
+		if (c2=="Northwest Territory" || c2=="Ontario" || c2=="Quebec" || c2=="Iceland") {
+			return true;
+		}
+	}
+	if (c1=="Alberta") {
+		if (c2=="Akaska" || c2=="Northwest Territory" || c2=="Ontario" || c2=="Western US") {
+			return true;
+		}
+	}
+	if (c1=="Ontario") {
+		if (c2=="Northwest Territory" || c2=="Alberta" || c2=="Quebec" || c2=="Greenland" || c2=="Eastern US" || c2=="Western US") {
+			return true;
+		}
+	}
+	if (c1=="Quebec") {
+		if (c2=="Ontario" || c2=="Greenland" || c2=="Eastern US") {
+			return true;
+		}
+	}
+	if (c1=="Western US") {
+		if (c2=="Alberta" || c2=="Ontario" || c2=="Eastern US" || c2=="Central America") {
+			return true;
+		}
+	}
+	if (c1=="Eastern US") {
+		if (c2=="Central America" || c2=="Western US" || c2=="Ontario" || c2=="Quebec") {
+			return true;
+		}
+	}
+	if (c1=="Central America") {
+		if (c2=="Western US" || c2=="Eastern US" || c2=="Venezuela") {
+			return true;
+		}
+	}
+	//South America
+	if (c1=="Venezuela") {
+		if (c2=="Central America" || c2=="Brazil" || c2=="Peru") {
+			return true;
+		}
+	}
+	if (c1=="Brazil") {
+		if (c2=="Venezuela" || c2=="Peru" || c2=="Argentina" || c2=="North Africa") {
+			return true;
+		}
+	}
+	if (c1=="Peru") {
+		if (c2=="Venezuela" || c2=="Brazil" || c2=="Argentina") {
+			return true;
+		}
+	}
+	if (c1=="Argentina") {
+		if (c2=="Peru" || c2=="Brazil") {
+			return true;
+		}
+	}
+	//Africa
+	if (c1=="North Africa") {
+		if (c2=="Brazil" || c2=="Congo" || c2=="East Africa" || c2=="Egypt" || c2=="Southern Europe" || c2=="Western Europe") {
+			return true;
+		}
+	}
+	if (c1=="Egypt") {
+		if (c2=="North Africa" || c2=="Southern Europe" || c2=="Middle East" || c2=="East Africa") {
+			return true;
+		}
+	}
+	if (c1=="East Africa") {
+		if (c2=="North Africa" || c2=="Egypt" || c2=="Middle East" || c2=="South Africa" || c2=="Congo" || c2=="Madagascar") {
+			return true;
+		}
+	}
+	if (c1=="Congo") {
+		if (c2=="North Africa" || c2=="East Africa" || c2=="South Africa") {
+			return true;
+		}
+	}
+	if (c1=="South Africa") {
+		if (c2=="Congo" || c2=="East Africa" || c2=="Madagascar") {
+			return true;
+		}
+	}
+	if (c1=="Madagascar") {
+		if (c2=="South Africa" || c2=="East Africa") {
+			return true;
+		}
+	}
+	//Europe
+	if (c1=="Iceland") {
+		if (c2=="Greenland" || c2=="Scandanavia" || c2=="Great Britian") {
+			return true;
+		}
+	}
+	if (c1=="Scandanavia") {
+		if (c2=="Iceland" || c2=="Ukraine" || c2=="Northern Europe" || c2=="Great Britian") {
+			return true;
+		}
+	}
+	if (c1=="Ukraine") {
+		if (c2=="Scandanavia" || c2=="Northern Europe" || c2=="Southern Europe" || c2=="Middle East" || c2=="Afghanistan" || c2=="Ural") {
+			return true;
+		}
+	}
+	if (c1=="Great Britian") {
+		if (c2=="Iceland" || c2=="Scandanavia" || c2=="Northern Europe" || c2=="Western Europe") {
+			return true;
+		}
+	}
+	if (c1=="Northern Europe") {
+		if (c2=="Great Britian" || c2=="Scandanavia" || c2=="Ukraine" || c2=="Southern Europe" || c2=="Western Europe") {
+			return true;
+		}
+	}
+	if (c1=="Western Europe") {
+		if (c2=="Great Britian" || c2=="Northern Europe" || c2=="Southern Europe" || c2=="North Africa") {
+			return true;
+		}
+	}
+	if (c1=="Southern Europe") {
+		if (c2=="Western Europe" || c2=="Northern Europe" || c2=="Ukraine" || c2=="Middle East" || c2=="Egypt" || c2=="North Africa") {
+			return true;
+		}
+	}
+	//Asia
+	if (c1=="Ural") {
+		if (c2=="Ukraine" || c2=="Siberia" || c2=="China" || c2=="Afghanistan") {
+			return true;
+		}
+	}
+	if (c1=="Siberia") {
+		if (c2=="Ural" || c2=="Yakutsk" || c2=="Irkutsk" || c2=="Mongolia" || c2=="China") {
+			return true;
+		}
+	}
+	if (c1=="Yakutsk") {
+		if (c2=="Siberia" || c2=="Kamchatka" || c2=="Irkutsk") {
+			return true;
+		}
+	}
+	if (c1=="Kamchatka") {
+		if (c2=="Yakutsk" || c2=="Irkutsk" || c2=="Mongolia" || c2=="Japan" || c2=="Akaska") {
+			return true;
+		}
+	}
+	if (c1=="Irkutsk") {
+		if (c2=="Siberia" || c2=="Yakutsk" || c2=="Kamchatka" || c2=="Mongolia") {
+			return true;
+		}
+	}
+	if (c1=="Mongolia") {
+		if (c2=="Siberia" || c2=="Irkutsk" || c2=="Kamchatka" || c2=="Japan") {
+			return true;
+		}
+	}
+	if (c1=="Japan") {
+		if (c2=="Mongolia" || c2=="Kamchatka") {
+			return true;
+		}
+	}
+	if (c1=="Afghanistan") {
+		if (c2=="Ukraine" || c2=="Ural" || c2=="China" || c2=="India" || c2=="Middle East") {
+			return true;
+		}
+	}
+	if (c1=="China") {
+		if (c2=="Afghanistan" || c2=="Ural" || c2=="Siberia" || c2=="Mongolia" || c2=="Siam" || c2=="India") {
+			return true;
+		}
+	}
+	if (c1=="Middle East") {
+		if (c2=="Southern Europe" || c2=="Ukraine" || c2=="Afghanistan" || c2=="India" || c2=="Egypt" || c2=="East Africa") {
+			return true;
+		}
+	}
+	if (c1=="India") {
+		if (c2=="Middle East" || c2=="Afghanistan" || c2=="China" || c2=="Siam") {
+			return true;
+		}
+	}
+	if (c1=="Siam") {
+		if (c2=="India" || c2=="China" || c2=="Indonesia") {
+			return true;
+		}
+	}
+	//Australia
+	if (c1=="Indonesia") {
+		if (c2=="Siam" || c2=="New Guinea" || c2=="Western Australia") {
+			return true;
+		}
+	}
+	if (c1=="New Guinea") {
+		if (c2=="Indonesia" || c2=="Western Australia" || c2=="Eastern Australia") {
+			return true;
+		}
+	}
+	if (c1=="Eastern Australia") {
+		if (c2=="Western Australia" || c2=="New Guinea") {
+			return true;
+		}
+	}
+	if (c1=="Western Australia") {
+		if (c2=="Indonesia" || c2=="New Guinea" || c2=="Eastern Australia") {
+			return true;
+		}
+	}
+	
+	return false;
+}
+
 int game()
 {
 //	testRollingJudgement();
-	
+
 	startGame();
 
 	while (!main_disp.is_closed()) {
@@ -872,7 +1093,8 @@ int game()
 					continue;
 				}
 				
-				cout << countries[id1].getName() << " (" << countries[id1].getArmies()<< ") attacking: " << endl;
+				cout << countries[id1].getName() << " (" << countries[id1].getArmies()<< ") attacking: ";
+				cout.flush();
 				while (!main_disp.is_closed()) {
 					main_disp.wait();
 					if (main_disp.button() && main_disp.mouse_y()>=0) {
@@ -880,13 +1102,11 @@ int game()
 						const int y = main_disp.mouse_y();
 						int id2 = getCountryId(x, y, 0);
 						
-						//same country
-						if (id2 == id1){
-							continue;
-						}
-						
 						//legal attack
-						else if (countries[id1].getOwner() != countries[id2].getOwner() && countries[id1].getArmies() > 1) {
+						if (countries[id1].getOwner() != countries[id2].getOwner()
+							&& countries[id1].getArmies() > 1
+							&& bTouching(countries[id1].getName(), countries[id2].getName())) {
+							
 							cout << countries[id2].getName() << " (" << countries[id2].getArmies() << ")" << endl;
 							attacking = countries[id1].getArmies()-1;
 							defending = countries[id2].getArmies();
@@ -925,11 +1145,16 @@ int game()
 							break;
 						}
 						
-						cout << " Can't attack";
-						if (countries[id1].getOwner() == countries[id2].getOwner())
+						cout << countries[id2].getName() << endl << " Can't attack";
+						if (id1==id2)
+							cout << " itself!" << endl;
+						else if (countries[id1].getOwner() == countries[id2].getOwner())
 							cout << " your own country!" << endl;
+						else if (!bTouching(countries[id1].getName(), countries[id2].getName()))
+							cout << " from that far away!" << endl;
 						else if (countries[id1].getArmies() == 1)
 							cout << ", not enough armies!" << endl;
+						cout << endl;
 						break;
 						
 					}
