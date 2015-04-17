@@ -16,6 +16,11 @@ using namespace cimg_library;
 
 /*
  to do:
+ 
+ add continents to place armies phase
+ 
+ add cards to end of turn, and turn-in to phase 1
+ 
  error checking, prevent closing window
  
  stats, graphs, attack history
@@ -101,6 +106,8 @@ unsigned char yellow[]	= {255,	255,0};
 unsigned char teal[]	= {0,	255,255};
 unsigned char pink[]	= {255,	0,	255};
 unsigned char blue[]	= {100,	100,255};
+unsigned char blackish[]	= {0,	0,	1};
+unsigned char whiteish[]	= {255,	255,254};
 unsigned char colors[7][3] = {{255,	255,255},//white
 	{255,	0,		0},		//red
 	{0,		255,	0},		//greeen
@@ -113,7 +120,8 @@ Player players[7] = {Player(), Player(), Player(), Player(), Player(), Player(),
 
 
 int getCountryId(int x, int y, int n){
-	//returns 100 for white (continue button)
+	//returns 100 for whiteish (continue button)
+	//returns 999 for blackish (quit)
 	
 	int xOriginal = x;
 	int yOriginal = y;
@@ -142,8 +150,11 @@ int getCountryId(int x, int y, int n){
 		int g = (int)image(x,y,0,1);
 		int b = (int)image(x,y,0,2);
 //		cout << r << ", " << g << ", " << b << endl;
-		if (r==255 && g==255 && b==255) {
+		if (r==255 && g==255 && b==254) {
 			return 100;
+		}
+		if (r==0 && g==0 && b==1) {
+			return 999;
 		}
 		for (int i=0; i<numberOfCountries; i++){
 			if (countries[i].getR()==r && countries[i].getG()==g && countries[i].getB()==b) {
@@ -167,31 +178,33 @@ void refreshMap(){
 //	image.draw_text(menuX, menuY, "Place Armies", white, 0, 1.0f, 26);
 	
 	image.draw_text(menuX, menuY, " Place Armies ", white);
-	image.draw_text(menuX, menuY+15, " Exchange cards ", white);
-	image.draw_text(menuX, menuY+30, " Attack ", white);
-	image.draw_text(menuX, menuY+45, " Tactical ", white);
+	image.draw_text(menuX, menuY+20, " Attack ", white);
+	image.draw_text(menuX, menuY+40, " Tactical ", white);
 	
 	switch (phase) {
 		case 1:
 			image.draw_text(menuX, menuY, " Place Armies ", 10, colors[turn]);
 			break;
 		case 2:
-			image.draw_text(menuX, menuY+15, " Exchange cards ", 10, colors[turn]);
+			image.draw_text(menuX, menuY+20, " Attack ", 10, colors[turn]);
 			break;
 		case 3:
-			image.draw_text(menuX, menuY+30, " Attack ", 10, colors[turn]);
-			break;
-		case 4:
-			image.draw_text(menuX, menuY+45, " Tactical ", 10, colors[turn]);
+			image.draw_text(menuX, menuY+40, " Tactical ", 10, colors[turn]);
 			break;
 	}
 	
-	if (phase==2 || phase==3 || phase==4) {
+	if (phase==2 || phase==3) {
 		for (int i=0; i<45; i++) {
-			image.draw_circle(menuX+15+i, menuY+80, radius*1.2, white, 1);
+			image.draw_circle(menuX+15+i, menuY+80, radius*1.2, whiteish, 1);
 		}
 		image.draw_text(menuX+11, menuY+74, " Continue ", black);
 	}
+	
+	for (int i=0; i<30; i++) {
+		image.draw_circle(10+i, 12, radius*1.2, blackish, 1);
+	}
+	image.draw_text(10, 5, " Quit ", white);
+
 	
 	int size;
 	for (int i=0; i< numberOfCountries; i+=1) {
@@ -1068,8 +1081,8 @@ int game()
 			//continue button
 			if (id1==100) {
 				//advance to next phase/turn
-				if (phase==4) {
-					//this code is also in phase 4's section
+				if (phase==3) {
+					//this code is also in phase 3's section
 					phase = 1;
 					do {
 						turn = turn + 1;
@@ -1079,15 +1092,16 @@ int game()
 				}
 				else phase = phase + 1;
 				refreshMap();
-				
-//				phase=4;
-//				refreshMap();
-//				continue;
+			}
+			
+			//quit button
+			if (id1==999) {
+				cout << "'Quit' is not implemented yet" << endl;
 			}
 			
 			//attack phase
 			//still needs non-max attack logic
-			if (phase==3) {
+			if (phase==2) {
 				//not your country
 				if (countries[id1].getOwner() != turn) {
 					continue;
@@ -1156,7 +1170,6 @@ int game()
 							cout << ", not enough armies!" << endl;
 						cout << endl;
 						break;
-						
 					}
 				}
 				refreshMap();
@@ -1165,7 +1178,7 @@ int game()
 			
 			//tactical
 			//needs chain of borders
-			if (phase==4) {
+			if (phase==3) {
 				if (countries[id1].getOwner() != turn) {
 					continue;
 				}
@@ -1203,8 +1216,6 @@ int game()
 				cout << " - Player " << turn << "'s turn - " << endl;
 				refreshMap();
 			}
-
-			
 		}
 	}
 
