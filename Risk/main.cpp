@@ -13,6 +13,7 @@ using namespace cimg_library;
 #include "Country.h"
 #include "Player.h"
 #include <iomanip>
+#include <random>
 
 /*
  to do:
@@ -32,8 +33,6 @@ using namespace cimg_library;
  
  overlay instructions with brief highlights instead of console
 */
-
-#include <random>
 
 CImg<unsigned char> image("Risk4.bmp");
 CImgDisplay main_disp(image,"Click a point");
@@ -173,6 +172,17 @@ void drawThickCircle(int x, int y, int r, unsigned char color[]) {
 	image.draw_circle(x, y-1, r, color, 1L,-1.0f);
 }
 
+void drawArmies(int id, unsigned char color[]){
+	int armies = countries[id].getArmies();
+	int size = radius-3 + armies*4;
+	int x = countries[id].getX();
+	int y = countries[id].getY();
+	
+	image.draw_circle(x, y, radius, color, 1);
+	drawThickCircle(x, y, size, color);
+	image.draw_text( x-((armies<10)?2:5) , y-6, "%u", black, 0, 1.0f, 13, (unsigned int)armies);
+}
+
 void refreshMap(){
 	image.load("Risk4.bmp");
 //	image.draw_text(menuX, menuY, "Place Armies", white, 0, 1.0f, 26);
@@ -181,6 +191,7 @@ void refreshMap(){
 	image.draw_text(menuX, menuY+20, " Attack ", white);
 	image.draw_text(menuX, menuY+40, " Tactical ", white);
 	
+	//phase indicator
 	switch (phase) {
 		case 1:
 			image.draw_text(menuX, menuY, " Place Armies ", 10, colors[turn]);
@@ -193,6 +204,7 @@ void refreshMap(){
 			break;
 	}
 	
+	//continue button
 	if (phase==2 || phase==3) {
 		for (int i=0; i<45; i++) {
 			image.draw_circle(menuX+15+i, menuY+80, radius*1.2, whiteish, 1);
@@ -200,55 +212,40 @@ void refreshMap(){
 		image.draw_text(menuX+11, menuY+74, " Continue ", black);
 	}
 	
+	//quit button
 	for (int i=0; i<30; i++) {
 		image.draw_circle(10+i, 12, radius*1.2, blackish, 1);
 	}
 	image.draw_text(10, 5, " Quit ", white);
 
 	
-	int size;
 	for (int i=0; i< numberOfCountries; i+=1) {
-		size = radius-3 + countries[i].getArmies()*4;
 		switch (countries[i].getOwner()) {
 			case 0:
-				image.draw_circle(countries[i].getX(), countries[i].getY(), radius, white, 1);
-				drawThickCircle(countries[i].getX(), countries[i].getY(), size, white);
+				drawArmies(i, white);
 				break;
 			case 1:
-				image.draw_circle(countries[i].getX(), countries[i].getY(), radius, red, 1);
-				drawThickCircle(countries[i].getX(), countries[i].getY(), size, red);
+				drawArmies(i, red);
 				break;
 			case 2:
-				image.draw_circle(countries[i].getX(), countries[i].getY(), radius, green, 1);
-				drawThickCircle(countries[i].getX(), countries[i].getY(), size, green);
+				drawArmies(i, green);
 				break;
 			case 3:
-				image.draw_circle(countries[i].getX(), countries[i].getY(), radius, yellow, 1);
-				drawThickCircle(countries[i].getX(), countries[i].getY(), size, yellow);
+				drawArmies(i, yellow);
 				break;
 			case 4:
-				image.draw_circle(countries[i].getX(), countries[i].getY(), radius, teal, 1);
-				drawThickCircle(countries[i].getX(), countries[i].getY(), size, teal);
+				drawArmies(i, teal);
 				break;
 			case 5:
-				image.draw_circle(countries[i].getX(), countries[i].getY(), radius, pink, 1);
-				drawThickCircle(countries[i].getX(), countries[i].getY(), size, pink);
+				drawArmies(i, pink);
 				break;
 			case 6:
-				image.draw_circle(countries[i].getX(), countries[i].getY(), radius, blue, 1);
-				drawThickCircle(countries[i].getX(), countries[i].getY(), size, blue);
+				drawArmies(i, blue);
 				break;
 			default:
-				image.draw_circle(countries[i].getX(), countries[i].getY(), radius, black, 1);
+				drawArmies(i, black);
 				break;
 		}
-		int armies = countries[i].getArmies();
-		int offset;
-		if (armies < 10)
-			offset = 2;
-		else
-			offset = 5;
-		image.draw_text(countries[i].getX()-offset, countries[i].getY()-6,"%u", black, 0, 1.0f, 13, (unsigned int)countries[i].getArmies());
 	}
 	main_disp.display(image);
 }
@@ -1028,10 +1025,8 @@ bool bTouching(string c1, string c2) {
 	return false;
 }
 
-int game()
-{
-//	testRollingJudgement();
-
+int game() {
+	
 	startGame();
 
 	while (!main_disp.is_closed()) {
@@ -1078,12 +1073,23 @@ int game()
 				
 				cout << countries[id1].getName() << " (" << countries[id1].getArmies()<< ") attacking: ";
 				cout.flush();
+				
+				//highlight attacker
+				drawArmies(id1, white);
+				main_disp.display(image);
+				
 				while (!main_disp.is_closed()) {
 					main_disp.wait();
 					if (main_disp.button() && main_disp.mouse_y()>=0) {
 						const int x = main_disp.mouse_x();
 						const int y = main_disp.mouse_y();
 						int id2 = getCountryId(x, y, 0);
+						
+						//quit button repeated, in case it's pressed during an attack
+						if (id2==999) {
+							main_disp.close();
+							break;
+						}
 						
 						//legal attack
 						if (countries[id1].getOwner() != countries[id2].getOwner()
