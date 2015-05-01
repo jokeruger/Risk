@@ -91,11 +91,13 @@ Country countries[42] = {
 int radius = 8;
 int numberOfPlayers = 0;	//number of players currently in the game
 bool chosen;
-int attacking = 3;
-int defending = 2;
+//int attacking = 3;
+//int defending = 2;
 int phase = 0;
 int turn = 0;
 int id1 = -1;
+int attackers = 3;
+int defenders = 2;
 
 unsigned char black[]	= {0,	0,	0};
 unsigned char white[]	= {255,	255,255};
@@ -107,6 +109,12 @@ unsigned char pink[]	= {255,	0,	255};
 unsigned char blue[]	= {100,	100,255};
 unsigned char blackish[]	= {0,	0,	1};
 unsigned char whiteish[]	= {255,	255,254};
+unsigned char white1[]	= {254,	255,255};
+unsigned char white2[]	= {253,	255,255};
+unsigned char white3[]	= {252,	255,255};
+unsigned char white4[]	= {251,	255,255};
+unsigned char white5[]	= {250,	255,255};
+
 unsigned char colors[7][3] = {{255,	255,255},//white
 	{255,	0,		0},		//red
 	{0,		255,	0},		//greeen
@@ -121,6 +129,11 @@ Player players[7] = {Player(), Player(), Player(), Player(), Player(), Player(),
 int getCountryId(int x, int y, int n){
 	//returns 100 for whiteish (continue button)
 	//returns 999 for blackish (quit)
+	//returns 101 for white1 (1 attacker)
+	//returns 102 for white2 (2 attackers)
+	//returns 103 for white3 (3 attackers)
+	//returns 901 for white4 (1 defender)
+	//returns 902 for white5 (2 defenders)
 	
 	int xOriginal = x;
 	int yOriginal = y;
@@ -154,6 +167,21 @@ int getCountryId(int x, int y, int n){
 		}
 		if (r==0 && g==0 && b==1) {
 			return 999;
+		}
+		if (r==254 && g==255 && b==255) {
+			return 101;
+		}
+		if (r==253 && g==255 && b==255) {
+			return 102;
+		}
+		if (r==252 && g==255 && b==255) {
+			return 103;
+		}
+		if (r==251 && g==255 && b==255) {
+			return 901;
+		}
+		if (r==250 && g==255 && b==255) {
+			return 902;
 		}
 		for (int i=0; i<numberOfCountries; i++){
 			if (countries[i].getR()==r && countries[i].getG()==g && countries[i].getB()==b) {
@@ -191,6 +219,43 @@ void refreshMap(){
 	image.draw_text(menuX, menuY+20, " Attack ", white);
 	image.draw_text(menuX, menuY+40, " Tactical ", white);
 	
+	if(phase==2) {
+		image.draw_text(menuX, menuY-110, " Attack with: ", white);
+		image.draw_circle(menuX+15, menuY-85, radius, white1, 1);
+		image.draw_circle(menuX+35, menuY-85, radius, white2, 1);
+		image.draw_circle(menuX+55, menuY-85, radius, white3, 1);
+		switch (attackers) {
+			case 1:
+				image.draw_circle(menuX+15, menuY-85, radius, colors[turn], 1);
+				break;
+			case 2:
+				image.draw_circle(menuX+35, menuY-85, radius, colors[turn], 1);
+				break;
+			case 3:
+				image.draw_circle(menuX+55, menuY-85, radius, colors[turn], 1);
+				break;
+		}
+		image.draw_text( menuX+13, menuY-91, "1", black, 0, 1.0f, 13);
+		image.draw_text( menuX+33, menuY-91, "2", black, 0, 1.0f, 13);
+		image.draw_text( menuX+53, menuY-91, "3", black, 0, 1.0f, 13);
+		
+		image.draw_text(menuX, menuY-70, " Defend with: ", white);
+		switch (defenders) {
+			case 1:
+				image.draw_circle(menuX+15, menuY-45, radius, black, 1);
+				image.draw_text( menuX+13, menuY-51, "1", white, 0, 1.0f, 13);
+				image.draw_circle(menuX+35, menuY-45, radius, white5, 1);
+				image.draw_text( menuX+33, menuY-51, "2", black, 0, 1.0f, 13);
+				break;
+			case 2:
+				image.draw_circle(menuX+15, menuY-45, radius, white4, 1);
+				image.draw_text( menuX+13, menuY-51, "1", black, 0, 1.0f, 13);
+				image.draw_circle(menuX+35, menuY-45, radius, black, 1);
+				image.draw_text( menuX+33, menuY-51, "2", white, 0, 1.0f, 13);
+				break;
+		}
+	}
+	
 	//phase indicator
 	switch (phase) {
 		case 1:
@@ -220,33 +285,9 @@ void refreshMap(){
 
 	
 	for (int i=0; i< numberOfCountries; i+=1) {
-		switch (countries[i].getOwner()) {
-			case 0:
-				drawArmies(i, white);
-				break;
-			case 1:
-				drawArmies(i, red);
-				break;
-			case 2:
-				drawArmies(i, green);
-				break;
-			case 3:
-				drawArmies(i, yellow);
-				break;
-			case 4:
-				drawArmies(i, teal);
-				break;
-			case 5:
-				drawArmies(i, pink);
-				break;
-			case 6:
-				drawArmies(i, blue);
-				break;
-			default:
-				drawArmies(i, black);
-				break;
-		}
+		drawArmies(i, colors[countries[i].getOwner()]);
 	}
+	
 	main_disp.display(image);
 }
 
@@ -1063,6 +1104,36 @@ int game() {
 				main_disp.close();
 			}
 			
+			//atackers
+			if (id1==101) {
+				attackers=1;
+				refreshMap();
+				continue;
+			}
+			if (id1==102) {
+				attackers=2;
+				refreshMap();
+				continue;
+			}
+			if (id1==103) {
+				attackers=3;
+				refreshMap();
+				continue;
+			}
+			
+			//defenders
+			if (id1==901) {
+				defenders=1;
+				refreshMap();
+				continue;
+			}
+			if (id1==901) {
+				defenders=2;
+				refreshMap();
+				continue;
+			}
+			
+			
 			//attack phase
 			//still needs non-max attack logic
 			if (phase==2) {
@@ -1093,22 +1164,24 @@ int game() {
 						
 						//legal attack
 						if (countries[id1].getOwner() != countries[id2].getOwner()
-							&& countries[id1].getArmies() > 1
+							&& countries[id1].getArmies() > attackers
 							&& bTouching(countries[id1].getName(), countries[id2].getName())) {
 							
 							cout << countries[id2].getName() << " (" << countries[id2].getArmies() << ")" << endl;
-							attacking = countries[id1].getArmies()-1;
-							defending = countries[id2].getArmies();
+//							attacking = countries[id1].getArmies()-1;
+//							defending = countries[id2].getArmies();
 							
 							//not-max attackers decision will go here
 							
-							tuple<char, int> result = decideRolls(attacking, defending);
+							tuple<char, int> result = decideRolls(attackers, countries[id2].getArmies()>=defenders?defenders:1);
+							
 							if (get<0>(result)=='X') {
 								cout << "Both players lose 1 army" << endl << endl;
 								if (countries[id2].getArmies()==1) {
+									//conquered
 									countries[id2].setOwner(countries[id1].getOwner());
-									countries[id2].setArmies(attacking);
-									countries[id1].setArmies(countries[id1].getArmies()-attacking);
+									countries[id2].setArmies(attackers);
+									countries[id1].setArmies(countries[id1].getArmies()-attackers);
 								}
 								else {
 									countries[id1].subArmies(1);
@@ -1120,9 +1193,10 @@ int game() {
 								cout << "Player " << get<0>(result) << " loses " << deaths << endl << endl;
 								if (get<0>(result)=='D'){
 									if (countries[id2].getArmies()==deaths) {
+										//conquered
 										countries[id2].setOwner(countries[id1].getOwner());
-										countries[id2].setArmies(attacking);
-										countries[id1].setArmies(countries[id1].getArmies()-attacking);
+										countries[id2].setArmies(attackers);
+										countries[id1].setArmies(countries[id1].getArmies()-attackers);
 									}
 									else countries[id2].subArmies(deaths);
 								}
@@ -1141,7 +1215,7 @@ int game() {
 							cout << " your own country!" << endl;
 						else if (!bTouching(countries[id1].getName(), countries[id2].getName()))
 							cout << " from that far away!" << endl;
-						else if (countries[id1].getArmies() == 1)
+						else if (countries[id1].getArmies() <= attackers)
 							cout << ", not enough armies!" << endl;
 						cout << endl;
 						break;
