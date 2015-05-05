@@ -18,7 +18,7 @@ using namespace cimg_library;
 /*
  to do:
  
- add continents to place armies phase
+ 'continue attack' button
  
  add cards to end of turn, and turn-in to phase 1
  
@@ -28,8 +28,6 @@ using namespace cimg_library;
  TIME LAPSE screenshots of board each turn
  
  history, to undo
- 
- auto attacks and defends with most available; add key to change
  
  overlay instructions with brief highlights instead of console
 */
@@ -812,7 +810,66 @@ void placeArmies(int player){
 	else {
 		armies += players[player].getCountries()/3;
 	}
-	
+	//North America
+	if (countries[0].getOwner()==turn
+		&& countries[1].getOwner()==turn
+		&& countries[2].getOwner()==turn
+		&& countries[3].getOwner()==turn
+		&& countries[4].getOwner()==turn
+		&& countries[5].getOwner()==turn
+		&& countries[6].getOwner()==turn
+		&& countries[7].getOwner()==turn
+		&& countries[8].getOwner()==turn) {
+		armies+=5;
+	}
+	//South America
+	if (countries[9].getOwner()==turn
+		&& countries[10].getOwner()==turn
+		&& countries[11].getOwner()==turn
+		&& countries[12].getOwner()==turn) {
+		armies+=2;
+	}
+	//Europe
+	if (countries[13].getOwner()==turn
+		&& countries[14].getOwner()==turn
+		&& countries[15].getOwner()==turn
+		&& countries[16].getOwner()==turn
+		&& countries[17].getOwner()==turn
+		&& countries[18].getOwner()==turn
+		&& countries[19].getOwner()==turn) {
+		armies += 5;
+	}
+	//Africa
+	if (countries[20].getOwner()==turn
+		&& countries[21].getOwner()==turn
+		&& countries[22].getOwner()==turn
+		&& countries[23].getOwner()==turn
+		&& countries[24].getOwner()==turn
+		&& countries[25].getOwner()==turn) {
+		armies += 3;
+	}
+	//Asia
+	if (countries[26].getOwner()==turn
+		&& countries[27].getOwner()==turn
+		&& countries[28].getOwner()==turn
+		&& countries[29].getOwner()==turn
+		&& countries[30].getOwner()==turn
+		&& countries[31].getOwner()==turn
+		&& countries[32].getOwner()==turn
+		&& countries[33].getOwner()==turn
+		&& countries[34].getOwner()==turn
+		&& countries[35].getOwner()==turn
+		&& countries[36].getOwner()==turn
+		&& countries[37].getOwner()==turn) {
+		armies += 7;
+	}
+	//Australia
+	if (countries[38].getOwner()==turn
+		&& countries[39].getOwner()==turn
+		&& countries[40].getOwner()==turn
+		&& countries[41].getOwner()==turn) {
+		armies+=2;
+	}
 	for (int i=0; i<armies;i++) {
 		image.draw_text(menuX + 80 + i*10, menuY, " * ", 10, colors[turn]);
 	}
@@ -1074,6 +1131,9 @@ int game() {
 		
 		//place armies
 		if (phase==1){
+			attackers = 3;
+			defenders = 2;
+			refreshMap();
 			placeArmies(turn);
 		}
 		
@@ -1099,51 +1159,57 @@ int game() {
 				refreshMap();
 			}
 			
-			//quit button
-			if (id1==999) {
-				main_disp.close();
+			//buttons
+			if (id1>numberOfCountries) {
+				//quit
+				if (id1==999) {
+					main_disp.close();
+				}
+				
+				//atackers
+				if (id1==101) {
+					attackers=1;
+					refreshMap();
+					continue;
+				}
+				if (id1==102) {
+					attackers=2;
+					refreshMap();
+					continue;
+				}
+				if (id1==103) {
+					attackers=3;
+					refreshMap();
+					continue;
+				}
+				
+				//defenders
+				if (id1==901) {
+					defenders=1;
+					refreshMap();
+					continue;
+				}
+				if (id1==902) {
+					defenders=2;
+					refreshMap();
+					continue;
+				}
 			}
-			
-			//atackers
-			if (id1==101) {
-				attackers=1;
-				refreshMap();
-				continue;
-			}
-			if (id1==102) {
-				attackers=2;
-				refreshMap();
-				continue;
-			}
-			if (id1==103) {
-				attackers=3;
-				refreshMap();
-				continue;
-			}
-			
-			//defenders
-			if (id1==901) {
-				defenders=1;
-				refreshMap();
-				continue;
-			}
-			if (id1==901) {
-				defenders=2;
-				refreshMap();
-				continue;
-			}
-			
 			
 			//attack phase
-			//still needs non-max attack logic
 			if (phase==2) {
 				//not your country
 				if (countries[id1].getOwner() != turn) {
 					continue;
 				}
 				
-				cout << countries[id1].getName() << " (" << countries[id1].getArmies()<< ") attacking: ";
-				cout.flush();
+				if (countries[id1].getArmies() <= attackers) {
+					attackers = countries[id1].getArmies() - 1;
+				}
+				
+				//reset defenders
+				defenders = 2;
+				refreshMap();
 				
 				//highlight attacker
 				drawArmies(id1, white);
@@ -1156,24 +1222,57 @@ int game() {
 						const int y = main_disp.mouse_y();
 						int id2 = getCountryId(x, y, 0);
 						
-						//quit button repeated, in case it's pressed during an attack
-						if (id2==999) {
-							main_disp.close();
-							break;
+						//buttons repeated
+						if (id2>numberOfCountries) {
+							//quit
+							if (id2==999) {
+								main_disp.close();
+							}
+							
+							//atackers
+							if (id2==101) {
+								attackers=1;
+								refreshMap();
+								break;
+							}
+							if (id2==102) {
+								attackers=2;
+								refreshMap();
+								break;
+							}
+							if (id2==103) {
+								attackers=3;
+								refreshMap();
+								break;
+							}
+							
+							//defenders
+							if (id2==901) {
+								defenders=1;
+								refreshMap();
+								break;
+							}
+							if (id2==902) {
+								defenders=2;
+								refreshMap();
+								break;
+							}
 						}
 						
 						//legal attack
 						if (countries[id1].getOwner() != countries[id2].getOwner()
-							&& countries[id1].getArmies() > attackers
+							&& countries[id1].getArmies() > 1
 							&& bTouching(countries[id1].getName(), countries[id2].getName())) {
 							
+							cout << countries[id1].getName() << " (" << countries[id1].getArmies()<< ") attacking: ";
 							cout << countries[id2].getName() << " (" << countries[id2].getArmies() << ")" << endl;
-//							attacking = countries[id1].getArmies()-1;
-//							defending = countries[id2].getArmies();
 							
-							//not-max attackers decision will go here
+							if (countries[id2].getArmies()==1) {
+								defenders = 1;
+								refreshMap();
+							}
 							
-							tuple<char, int> result = decideRolls(attackers, countries[id2].getArmies()>=defenders?defenders:1);
+							tuple<char, int> result = decideRolls(attackers, defenders);
 							
 							if (get<0>(result)=='X') {
 								cout << "Both players lose 1 army" << endl << endl;
@@ -1190,7 +1289,7 @@ int game() {
 							}
 							else {
 								int deaths = get<1>(result);
-								cout << "Player " << get<0>(result) << " loses " << deaths << endl << endl;
+								cout << (get<0>(result)=='A'?"Attacker ":"Defender ") << "loses " << deaths << endl << endl;
 								if (get<0>(result)=='D'){
 									if (countries[id2].getArmies()==deaths) {
 										//conquered
@@ -1262,9 +1361,7 @@ int game() {
 					turn = turn + 1;
 					if (turn==7) turn = 1;
 				} while (!players[turn].isAlive());
-				cout << " - Player " << turn << "'s turn - " << endl;
-				refreshMap();
-			}
+				cout << " - Player " << turn << "'s turn - " << endl;			}
 		}
 	}
 
