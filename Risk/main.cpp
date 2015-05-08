@@ -94,8 +94,13 @@ bool chosen;
 int phase = 0;
 int turn = 0;
 int id1 = -1;
+int id2 = -1;
 int attackers = 3;
 int defenders = 2;
+bool bAttacking = false;
+int x2;
+int y2;
+int lastAttacker;
 
 unsigned char black[]	= {0,	0,	0};
 unsigned char white[]	= {255,	255,255};
@@ -112,6 +117,7 @@ unsigned char white2[]	= {253,	255,255};
 unsigned char white3[]	= {252,	255,255};
 unsigned char white4[]	= {251,	255,255};
 unsigned char white5[]	= {250,	255,255};
+unsigned char white6[]	= {249,	255,255};
 
 unsigned char colors[7][3] = {{255,	255,255},//white
 	{255,	0,		0},		//red
@@ -132,6 +138,7 @@ int getCountryId(int x, int y, int n){
 	//returns 103 for white3 (3 attackers)
 	//returns 901 for white4 (1 defender)
 	//returns 902 for white5 (2 defenders)
+	//returns 960 for white6 (attack again button)
 	
 	int xOriginal = x;
 	int yOriginal = y;
@@ -181,6 +188,9 @@ int getCountryId(int x, int y, int n){
 		if (r==250 && g==255 && b==255) {
 			return 902;
 		}
+		if (r==249 && g==255 && b==255) {
+			return 960;
+		}
 		for (int i=0; i<numberOfCountries; i++){
 			if (countries[i].getR()==r && countries[i].getG()==g && countries[i].getB()==b) {
 				return i;
@@ -217,6 +227,7 @@ void refreshMap(){
 	image.draw_text(menuX, menuY+20, " Attack ", white);
 	image.draw_text(menuX, menuY+40, " Tactical ", white);
 	
+	//attacker/defender buttons
 	if(phase==2) {
 		image.draw_text(menuX, menuY-110, " Attack with: ", white);
 		image.draw_circle(menuX+15, menuY-85, radius, white1, 1);
@@ -284,6 +295,19 @@ void refreshMap(){
 	
 	for (int i=0; i< numberOfCountries; i+=1) {
 		drawArmies(i, colors[countries[i].getOwner()]);
+	}
+	
+	//attack again button
+	if (bAttacking) {
+		int x = countries[id2].getX();
+		int y = countries[id2].getY();
+		for (int xOffset=-14; xOffset<14; xOffset++) {
+			for (int yOffset=20; yOffset<30; yOffset++) {
+				image.draw_circle(x+xOffset, y+yOffset, radius, white6, 1);
+			}
+		}
+		image.draw_text(x-17, y+12, "Attack", black);
+		image.draw_text(x-15, y+22, "again?", black);
 	}
 	
 	main_disp.display(image);
@@ -1142,28 +1166,57 @@ int game() {
 			const int x = main_disp.mouse_x();
 			const int y = main_disp.mouse_y();
 			id1 = getCountryId(x, y, 0);
-			
-			//continue button
-			if (id1==100) {
-				//advance to next phase/turn
-				if (phase==3) {
-					//this code is also in phase 3's section
-					phase = 1;
-					do {
-						turn = turn + 1;
-						if (turn==7) turn = 1;
-					} while (!players[turn].isAlive());
-					cout << " - Player " << turn << "'s turn - " << endl;
-				}
-				else phase = phase + 1;
-				refreshMap();
+			if (id1<numberOfCountries && id1!=lastAttacker) {
+				attackers=3;
 			}
+			
+			//prevents misclicks registering as correctly selected attacker
+			if (id1<numberOfCountries && countries[id1].getOwner()!=turn) {
+				cout << "Not your country!" << endl;
+				id1=lastAttacker;
+				continue;
+			}
+			else if (id1<numberOfCountries && countries[id1].getOwner()==turn)
+				bAttacking = false;
 			
 			//buttons
 			if (id1>numberOfCountries) {
+				//attack again
+				if (id1==960) {
+					id1=lastAttacker;
+					if (countries[id1].getArmies()>1) {
+						if (attackers>countries[id1].getArmies()-1) {
+							attackers = countries[id1].getArmies()-1;
+						}
+						goto attack;
+					}
+					else {
+						bAttacking = false;
+						id1 = -1;
+						refreshMap();
+						cout << "Done attacking" << endl;
+					}
+				}
+				
 				//quit
 				if (id1==999) {
 					main_disp.close();
+				}
+				
+				//continue
+				if (id1==100) {
+					//advance to next phase/turn
+					if (phase==3) {
+						//this code is also in phase 3's section
+						phase = 1;
+						do {
+							turn = turn + 1;
+							if (turn==7) turn = 1;
+						} while (!players[turn].isAlive());
+						cout << " - Player " << turn << "'s turn - " << endl;
+					}
+					else phase = phase + 1;
+					refreshMap();
 				}
 				
 				//atackers
@@ -1218,9 +1271,9 @@ int game() {
 				while (!main_disp.is_closed()) {
 					main_disp.wait();
 					if (main_disp.button() && main_disp.mouse_y()>=0) {
-						const int x = main_disp.mouse_x();
-						const int y = main_disp.mouse_y();
-						int id2 = getCountryId(x, y, 0);
+						x2 = main_disp.mouse_x();
+						y2 = main_disp.mouse_y();
+						id2 = getCountryId(x2, y2, 0);
 						
 						//buttons repeated
 						if (id2>numberOfCountries) {
@@ -1259,10 +1312,13 @@ int game() {
 							}
 						}
 						
+					attack:
 						//legal attack
 						if (countries[id1].getOwner() != countries[id2].getOwner()
 							&& countries[id1].getArmies() > 1
 							&& bTouching(countries[id1].getName(), countries[id2].getName())) {
+							
+							lastAttacker = id1;
 							
 							cout << countries[id1].getName() << " (" << countries[id1].getArmies()<< ") attacking: ";
 							cout << countries[id2].getName() << " (" << countries[id2].getArmies() << ")" << endl;
@@ -1286,6 +1342,8 @@ int game() {
 									countries[id1].subArmies(1);
 									countries[id2].subArmies(1);
 								}
+								if (countries[id1].getArmies()!=1)
+									bAttacking = true;
 							}
 							else {
 								int deaths = get<1>(result);
@@ -1296,11 +1354,17 @@ int game() {
 										countries[id2].setOwner(countries[id1].getOwner());
 										countries[id2].setArmies(attackers);
 										countries[id1].setArmies(countries[id1].getArmies()-attackers);
+										bAttacking = false;
 									}
-									else countries[id2].subArmies(deaths);
+									else {
+										countries[id2].subArmies(deaths);
+										bAttacking = true;
+									}
 								}
 								else {
 									countries[id1].subArmies(deaths);
+									if (countries[id1].getArmies()!=1)
+										bAttacking = true;
 								}
 							}
 							
