@@ -14,13 +14,12 @@ using namespace cimg_library;
 #include "Player.h"
 #include <iomanip>
 #include <random>
+#include <queue>
 
 /*
  to do:
  
- 'continue attack' button
- 
- add cards to end of turn, and turn-in to phase 1
+ tactical can move to any number of countries
  
  error checking, prevent closing window
  
@@ -30,16 +29,18 @@ using namespace cimg_library;
  history, to undo
  
  overlay instructions with brief highlights instead of console
+ 
+ mission cards
 */
 
 CImg<unsigned char> image("Risk4.bmp");
 CImgDisplay main_disp(image,"Click a point");
 int menuX = 20;
 int menuY = 400;
-int numberOfCountries = 42;
-Country countries[42] = {
+const int numberOfCountries = 42;
+Country countries[numberOfCountries] = {
 	//North America
-	Country(57, 99, "Akaska", 221, 192, 87),
+	Country(57, 99, "Alaska", 221, 192, 87),
 	Country(132, 103, "Northwest Territory", 221, 192, 86),
 	Country(315, 65, "Greenland", 221, 192, 85),
 	Country(134, 146, "Alberta", 221, 192, 84),
@@ -101,6 +102,28 @@ bool bAttacking = false;
 int x2;
 int y2;
 int lastAttacker;
+bool bConquered;
+int deck[numberOfCountries+2] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+	10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+	20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+	30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43};
+int deckType[numberOfCountries+2] = { // 1=infantry, 2=cavalry, 3=cannon, 0=WILD
+	1, 3, 2, 1, 2, 3, 1, 3, 2,
+	3, 2, 3, 1,
+	1, 3, 2, 2, 3, 1, 2,
+	1, 1, 2, 3, 3, 1,
+	2, 3, 2, 2, 1, 3, 1, 2, 3, 1, 3, 1,
+	2, 2, 3, 1, 0, 0};
+int deckPlace = 0;
+queue<int> cardsInHands[7];
+bool bSecret;
+bool bSafe;
+int cardsX = 5;
+int cardsY = 200;
+bool card1, card2, card3, card4, card5, card6, card7, card8, card9 = false;
+int cardsSelected;
+int armies;
+int armiesFromExchange = 4;
 
 unsigned char black[]	= {0,	0,	0};
 unsigned char white[]	= {255,	255,255};
@@ -142,13 +165,11 @@ int getCountryId(int x, int y, int n){
 	
 	int xOriginal = x;
 	int yOriginal = y;
-//	cout << x << "," << y << " " << n <<endl;
 	
 	//search around
 	bool vertical = (n%2==1);
 	bool positive = (((n%4)/2)==1);
 	int	 distance = (n+3)/4;
-//	cout << "vertical " << vertical << "  positive " << positive << "  distance " << distance << endl;
 	if (n>0){
 		if (vertical){
 			if (positive)
@@ -161,12 +182,13 @@ int getCountryId(int x, int y, int n){
 			else x = x - distance;
 		}
 	}
-//	cout << x << ", " << y << endl;
+	
+	//returns for buttons and recursive calls for countries
 	if (x>0 && x<image.width() && y>0 && y<image.height()){
 		int r = (int)image(x,y,0,0);
 		int g = (int)image(x,y,0,1);
 		int b = (int)image(x,y,0,2);
-//		cout << r << ", " << g << ", " << b << endl;
+		
 		if (r==255 && g==255 && b==254) {
 			return 100;
 		}
@@ -219,13 +241,41 @@ void drawArmies(int id, unsigned char color[]){
 	image.draw_text( x-((armies<10)?2:5) , y-6, "%u", black, 0, 1.0f, 13, (unsigned int)armies);
 }
 
+void exchangeCards(int c1, int c2, int c3) {
+	armies += armiesFromExchange;
+	
+	if (countries[c1].getOwner() == turn) {
+		countries[c1].addArmies(2);
+		cout << "Bonus armies on " << countries[c1].getName() << "!" << endl;
+	}
+	if (countries[c2].getOwner() == turn) {
+		countries[c2].addArmies(2);
+		cout << "Bonus armies on " << countries[c2].getName() << "!" << endl;
+	}
+	if (countries[c3].getOwner() == turn) {
+		countries[c3].addArmies(2);
+		cout << "Bonus armies on " << countries[c3].getName() << "!" << endl;
+	}
+	
+	//1st = 4; 2nd = 6; 3rd = 8; 4th = 10; 5th = 12; 6th = 15; and for every additional set thereafter 5 more
+	if (armiesFromExchange<12)
+		armiesFromExchange+=2;
+	else if (armiesFromExchange==12)
+		armiesFromExchange+=3;
+	else
+		armiesFromExchange+=5;
+
+}
+
 void refreshMap(){
 	image.load("Risk4.bmp");
-//	image.draw_text(menuX, menuY, "Place Armies", white, 0, 1.0f, 26);
 	
+	//phase labels
 	image.draw_text(menuX, menuY, " Place Armies ", white);
 	image.draw_text(menuX, menuY+20, " Attack ", white);
 	image.draw_text(menuX, menuY+40, " Tactical ", white);
+	if(phase==1 && turn>0)
+		image.draw_text(menuX, menuY+90, " [S]how [S]ecret [S]tuff ", white);
 	
 	//attacker/defender buttons
 	if(phase==2) {
@@ -311,6 +361,306 @@ void refreshMap(){
 	}
 	
 	main_disp.display(image);
+	
+	//Is it secret? Is it safe?
+	while (bSecret) {
+		if (bSafe) {
+			//show cards
+			for (int i=0; i<(cardsInHands[turn].size()<9?cardsInHands[turn].size():9); i++){
+				
+				//highlight countries with matched cards
+				drawThickCircle(countries[cardsInHands[turn].front()].getX(), countries[cardsInHands[turn].front()].getY(), radius-3+countries[cardsInHands[turn].front()].getArmies()*4, white);
+				
+				int adjustment = i*32;
+				if ((i==0&&card1) || (i==1&&card2) || (i==2&&card3) || (i==3&&card4) ||
+					(i==4&&card5) || (i==5&&card6) || (i==6&&card7) || (i==7&&card8) || (i==8&&card9))
+				{
+					image.draw_rectangle(cardsX, cardsY+adjustment, cardsX+62, cardsY+adjustment+28, white);
+					if (cardsSelected==3) {
+						image.draw_text(menuX+10, menuY+110, " [E]xchange selected cards ", white);
+					}
+				}
+				else
+					image.draw_rectangle(cardsX, cardsY+adjustment, cardsX+62, cardsY+adjustment+28, colors[turn]);
+				
+				if (cardsInHands[turn].front()==1)
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, "NW Territory");
+				else if (cardsInHands[turn].front()==8)
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, "C. America");
+				else if (cardsInHands[turn].front()==16)
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, "N. Europe");
+				else if (cardsInHands[turn].front()==18)
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, "W. Europe");
+				else if (cardsInHands[turn].front()==19)
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, "S. Europe");
+				else if (cardsInHands[turn].front()==20)
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, "N. Africa");
+				else if (cardsInHands[turn].front()==23)
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, "E. Africa");
+				else if (cardsInHands[turn].front()==24)
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, "S. Africa");
+				else if (cardsInHands[turn].front()==40)
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, "W Australia");
+				else if (cardsInHands[turn].front()==41)
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, "E Australia");
+				else {
+					//c_str() is used to pass a pointer instead of the non-trivial type 'string'
+					image.draw_text(cardsX+1, cardsY+adjustment, "%s", black, 0, 1.0f, 13, countries[cardsInHands[turn].front()].getName().c_str());
+				}
+				image.draw_text(cardsX+28, cardsY+14+adjustment, "%u", black, 0, 1.0f, 13, (unsigned int)deckType[cardsInHands[turn].front()]);
+				cardsInHands[turn].push(cardsInHands[turn].front());
+				cardsInHands[turn].pop();
+			}
+			
+			main_disp.display(image);
+			main_disp.wait();
+			if (main_disp.is_keyS()) {
+				bSecret = false;
+				bSafe = false;
+				refreshMap();
+			}
+			if (main_disp.is_key1() && cardsInHands[turn].size()>0) {
+				card1 = !card1;
+				if (card1)
+					cardsSelected++;
+				else
+					cardsSelected--;
+				refreshMap();
+			}
+			if (main_disp.is_key2() && cardsInHands[turn].size()>1) {
+				card2 = !card2;
+				if (card2)
+					cardsSelected++;
+				else
+					cardsSelected--;
+				refreshMap();
+			}
+			if (main_disp.is_key3() && cardsInHands[turn].size()>2) {
+				card3 = !card3;
+				if (card3)
+					cardsSelected++;
+				else
+					cardsSelected--;
+				refreshMap();
+			}
+			if (main_disp.is_key4() && cardsInHands[turn].size()>3) {
+				card4 = !card4;
+				if (card4)
+					cardsSelected++;
+				else
+					cardsSelected--;
+				refreshMap();
+			}
+			if (main_disp.is_key5() && cardsInHands[turn].size()>4) {
+				card5 = !card5;
+				if (card5)
+					cardsSelected++;
+				else
+					cardsSelected--;
+				refreshMap();
+			}
+			if (main_disp.is_key6() && cardsInHands[turn].size()>5) {
+				card6 = !card6;
+				if (card6)
+					cardsSelected++;
+				else
+					cardsSelected--;
+				refreshMap();
+			}
+			if (main_disp.is_key7() && cardsInHands[turn].size()>6) {
+				card7 = !card7;
+				if (card7)
+					cardsSelected++;
+				else
+					cardsSelected--;
+				refreshMap();
+			}
+			if (main_disp.is_key8() && cardsInHands[turn].size()>7) {
+				card8 = !card8;
+				refreshMap();
+				if (card8)
+					cardsSelected++;
+				else
+					cardsSelected--;
+			}
+			if (main_disp.is_key9() && cardsInHands[turn].size()>8) {
+				card9 = !card9;
+				if (card9)
+					cardsSelected++;
+				else
+					cardsSelected--;
+				refreshMap();
+			}
+			
+			//exchange cards
+			if (main_disp.is_keyE() && cardsSelected==3) {
+				bSecret=false;
+				queue<int> trades;
+				queue<int> newHand;
+				
+				//figures out which cards to exchange
+				if (cardsSelected==3) {
+					if (card1) {
+						trades.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					else {
+						newHand.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					
+					if (card2) {
+						trades.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					else {
+						newHand.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					
+					if (card3) {
+						trades.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					else {
+						newHand.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					
+					if (card4) {
+						trades.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					else if (cardsInHands[turn].size()>0) {
+						newHand.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					
+					if (card5) {
+						trades.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					else if (cardsInHands[turn].size()>0) {
+						newHand.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					
+					if (card6) {
+						trades.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					else if (cardsInHands[turn].size()>0) {
+						newHand.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					
+					if (card7) {
+						trades.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					else if (cardsInHands[turn].size()>0) {
+						newHand.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					
+					if (card8) {
+						trades.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					else if (cardsInHands[turn].size()>0) {
+						newHand.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					
+					if (card9) {
+						trades.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+					else if (cardsInHands[turn].size()>0) {
+						newHand.push(cardsInHands[turn].front());
+						cardsInHands[turn].pop();
+					}
+				}
+				
+				//moves undisplayed (>9) cards into newHand
+				while (cardsInHands[turn].size()>0) {
+					newHand.push(cardsInHands[turn].front());
+					cardsInHands[turn].pop();
+				}
+				
+				//moves newHand back to original array
+				while (newHand.size()>0) {
+					cardsInHands[turn].push(newHand.front());
+					newHand.pop();
+				}
+				
+				int card1id = trades.front();
+				trades.pop();
+				int card2id = trades.front();
+				trades.pop();
+				int card3id = trades.front();
+				trades.pop();
+				
+				//all the same
+				if (deckType[card1id]==deckType[card2id] && deckType[card2id]==deckType[card3id]) {
+					switch (deckType[card1id]) {
+						case 1:
+							cout << "Three 1's = " << armiesFromExchange << " armies" << endl;
+							break;
+						case 2:
+							cout << "Three 2's = " << armiesFromExchange << " armies" << endl;
+							break;
+						case 3:
+							cout << "Three 3's = " << armiesFromExchange << " armies" << endl;
+							break;
+					}
+					exchangeCards(card1id, card2id, card3id);
+				}
+				
+				//wilds
+				else if (deckType[card1id]==0 || deckType[card2id]==0 || deckType[card3id]==0) {
+					cout << "Wild card! " << armiesFromExchange << " armies" << endl;
+					exchangeCards(card1id, card2id, card3id);
+				}
+				
+				//all different
+				else if (deckType[card1id]!=deckType[card2id] && deckType[card2id]!=deckType[card3id] && deckType[card1id]!=deckType[card3id]) {
+					cout << "One of each = " << armiesFromExchange << " armies" << endl;
+					exchangeCards(card1id, card2id, card3id);
+				}
+				
+				//invalid exchange
+				else {
+					cout << "Invalid exchange" << endl;
+					cardsInHands[turn].push(card1id);
+					cardsInHands[turn].push(card2id);
+					cardsInHands[turn].push(card3id);
+				}
+				
+				//either way, reset what's been selected
+				cardsSelected = 0;
+				card1 = false; card2 = false; card3 = false; card4 = false;
+				card5 = false; card6 = false; card7 = false; card8 = false; card9 = false;
+				refreshMap();
+			}
+		}
+		
+		//show warning for other players to look away
+		else {
+			card1 = false; card2 = false; card3 = false; card4 = false;
+			card5 = false; card6 = false; card7 = false; card8 = false; card9 = false;
+			cardsSelected = 0;
+			image.draw_rectangle(0, 0, image.width(), image.height(), black);
+			image.draw_text(340, 265, "Everyone else look away!", white);
+			image.draw_text(380, 365, "[S]afe?", white);
+			main_disp.display(image);
+			main_disp.wait();
+			if (main_disp.is_keyS()) {
+				bSafe = true;
+				refreshMap();
+			}
+		}
+	}
 }
 
 void pickCountry (int player) {
@@ -531,6 +881,13 @@ void distributeArmiesRandomly() {
 }
 
 void startGame() {
+	//shuffle deck
+	if (deck[0]==0) {
+		random_device rd;
+		mt19937 g(rd());
+		shuffle(std::begin(deck),std::end(deck),g);
+	}
+	
 	cout << "Number of players? (2-6) \n";
 	while (!main_disp.is_closed()) {
 		main_disp.wait();
@@ -569,13 +926,13 @@ void startGame() {
 		//Random
 		if (main_disp.is_keyR()) {
 			cout << "Randomly distributing countries...\n\n";
-			int cIndex[42] {0, 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,
+			int cIndex[numberOfCountries] {0, 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,
 				22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41};
 			random_device rd;
 			mt19937 g(rd());
 			shuffle(std::begin(cIndex),std::end(cIndex),g);
 			
-			for (int i=0; i<42; i++) {
+			for (int i=0; i<numberOfCountries; i++) {
 				countries[cIndex[i]].setOwner(i%numberOfPlayers+1);
 				countries[cIndex[i]].addArmies(1);
 				players[i%numberOfPlayers+1].addArmy();
@@ -823,94 +1180,101 @@ int testRollingJudgement(){
 	return 0;
 }
 
-void placeArmies(int player){
-	int armies = 0;
-	
-//	cout << players[player].getCountries() << endl;
-	
-	if (players[player].getCountries()/3<11){
-		armies+=3;
-	}
-	else {
-		armies += players[player].getCountries()/3;
-	}
-	//North America
-	if (countries[0].getOwner()==turn
-		&& countries[1].getOwner()==turn
-		&& countries[2].getOwner()==turn
-		&& countries[3].getOwner()==turn
-		&& countries[4].getOwner()==turn
-		&& countries[5].getOwner()==turn
-		&& countries[6].getOwner()==turn
-		&& countries[7].getOwner()==turn
-		&& countries[8].getOwner()==turn) {
-		armies+=5;
-	}
-	//South America
-	if (countries[9].getOwner()==turn
-		&& countries[10].getOwner()==turn
-		&& countries[11].getOwner()==turn
-		&& countries[12].getOwner()==turn) {
-		armies+=2;
-	}
-	//Europe
-	if (countries[13].getOwner()==turn
-		&& countries[14].getOwner()==turn
-		&& countries[15].getOwner()==turn
-		&& countries[16].getOwner()==turn
-		&& countries[17].getOwner()==turn
-		&& countries[18].getOwner()==turn
-		&& countries[19].getOwner()==turn) {
-		armies += 5;
-	}
-	//Africa
-	if (countries[20].getOwner()==turn
-		&& countries[21].getOwner()==turn
-		&& countries[22].getOwner()==turn
-		&& countries[23].getOwner()==turn
-		&& countries[24].getOwner()==turn
-		&& countries[25].getOwner()==turn) {
-		armies += 3;
-	}
-	//Asia
-	if (countries[26].getOwner()==turn
-		&& countries[27].getOwner()==turn
-		&& countries[28].getOwner()==turn
-		&& countries[29].getOwner()==turn
-		&& countries[30].getOwner()==turn
-		&& countries[31].getOwner()==turn
-		&& countries[32].getOwner()==turn
-		&& countries[33].getOwner()==turn
-		&& countries[34].getOwner()==turn
-		&& countries[35].getOwner()==turn
-		&& countries[36].getOwner()==turn
-		&& countries[37].getOwner()==turn) {
-		armies += 7;
-	}
-	//Australia
-	if (countries[38].getOwner()==turn
-		&& countries[39].getOwner()==turn
-		&& countries[40].getOwner()==turn
-		&& countries[41].getOwner()==turn) {
-		armies+=2;
-	}
+void drawArmiesToPlace(int armies) {
 	for (int i=0; i<armies;i++) {
 		image.draw_text(menuX + 80 + i*10, menuY, " * ", 10, colors[turn]);
 	}
-	
 	main_disp.display(image);
+}
+
+void placeArmies(int player){
+	armies = 0;
 	
-//	cout << armies << endl;
+	if (players[player].getCountries()/3<11)
+		armies+=3;
+	else
+		armies += players[player].getCountries()/3;
+	
+	//continent bonus
+	if(players[player].getCountries()>=4){
+		//North America
+		if (countries[0].getOwner()==turn
+			&& countries[1].getOwner()==turn
+			&& countries[2].getOwner()==turn
+			&& countries[3].getOwner()==turn
+			&& countries[4].getOwner()==turn
+			&& countries[5].getOwner()==turn
+			&& countries[6].getOwner()==turn
+			&& countries[7].getOwner()==turn
+			&& countries[8].getOwner()==turn) {
+			armies+=5;
+		}
+		//South America
+		if (countries[9].getOwner()==turn
+			&& countries[10].getOwner()==turn
+			&& countries[11].getOwner()==turn
+			&& countries[12].getOwner()==turn) {
+			armies+=2;
+		}
+		//Europe
+		if (countries[13].getOwner()==turn
+			&& countries[14].getOwner()==turn
+			&& countries[15].getOwner()==turn
+			&& countries[16].getOwner()==turn
+			&& countries[17].getOwner()==turn
+			&& countries[18].getOwner()==turn
+			&& countries[19].getOwner()==turn) {
+			armies += 5;
+		}
+		//Africa
+		if (countries[20].getOwner()==turn
+			&& countries[21].getOwner()==turn
+			&& countries[22].getOwner()==turn
+			&& countries[23].getOwner()==turn
+			&& countries[24].getOwner()==turn
+			&& countries[25].getOwner()==turn) {
+			armies += 3;
+		}
+		//Asia
+		if (countries[26].getOwner()==turn
+			&& countries[27].getOwner()==turn
+			&& countries[28].getOwner()==turn
+			&& countries[29].getOwner()==turn
+			&& countries[30].getOwner()==turn
+			&& countries[31].getOwner()==turn
+			&& countries[32].getOwner()==turn
+			&& countries[33].getOwner()==turn
+			&& countries[34].getOwner()==turn
+			&& countries[35].getOwner()==turn
+			&& countries[36].getOwner()==turn
+			&& countries[37].getOwner()==turn) {
+			armies += 7;
+		}
+		//Australia
+		if (countries[38].getOwner()==turn
+			&& countries[39].getOwner()==turn
+			&& countries[40].getOwner()==turn
+			&& countries[41].getOwner()==turn) {
+			armies+=2;
+		}
+	}
+	
+	drawArmiesToPlace(armies);
 	
 	while (armies>0) {
 		main_disp.wait();
+		if (main_disp.is_keyS()) {
+			bSecret = true;
+			refreshMap();
+			drawArmiesToPlace(armies);
+		}
+
 		if (main_disp.button() && main_disp.mouse_y()>=0) {
 			const int x = main_disp.mouse_x();
 			const int y = main_disp.mouse_y();
 			int id = getCountryId(x, y, 0);
 			
 			if (countries[id].getOwner()==player) {
-//				cout << countries[id].getName() << endl<<endl;
 				countries[id].addArmies(1);
 				refreshMap();
 				armies--;
@@ -934,7 +1298,7 @@ bool bTouching(string c1, string c2) {
 		}
 	}
 	if (c1=="Northwest Territory") {
-		if (c2=="Akaska" || c2=="Alberta" || c2=="Ontario" || c2=="Greenland") {
+		if (c2=="Alaska" || c2=="Alberta" || c2=="Ontario" || c2=="Greenland") {
 			return true;
 		}
 	}
@@ -944,7 +1308,7 @@ bool bTouching(string c1, string c2) {
 		}
 	}
 	if (c1=="Alberta") {
-		if (c2=="Akaska" || c2=="Northwest Territory" || c2=="Ontario" || c2=="Western US") {
+		if (c2=="Alaska" || c2=="Northwest Territory" || c2=="Ontario" || c2=="Western US") {
 			return true;
 		}
 	}
@@ -1078,7 +1442,7 @@ bool bTouching(string c1, string c2) {
 		}
 	}
 	if (c1=="Kamchatka") {
-		if (c2=="Yakutsk" || c2=="Irkutsk" || c2=="Mongolia" || c2=="Japan" || c2=="Akaska") {
+		if (c2=="Yakutsk" || c2=="Irkutsk" || c2=="Mongolia" || c2=="Japan" || c2=="Alaska") {
 			return true;
 		}
 	}
@@ -1147,6 +1511,25 @@ bool bTouching(string c1, string c2) {
 	return false;
 }
 
+void advanceTurn() {
+	if (bConquered) {
+		cardsInHands[turn].push(deck[deckPlace]);
+		deckPlace++;
+		cardsInHands[turn].push(deck[deckPlace]);
+		deckPlace++;
+		cardsInHands[turn].push(deck[deckPlace]);
+		deckPlace++;
+		cardsInHands[turn].push(deck[deckPlace]);
+		deckPlace++;
+	}
+	phase = 1;
+	do {
+		turn = turn + 1;
+		if (turn==7) turn = 1;
+	} while (!players[turn].isAlive());
+	cout << " - Player " << turn << "'s turn - " << endl;
+}
+
 int game() {
 	
 	startGame();
@@ -1155,6 +1538,7 @@ int game() {
 		
 		//place armies
 		if (phase==1){
+			bConquered = false;
 			attackers = 3;
 			defenders = 2;
 			refreshMap();
@@ -1205,15 +1589,8 @@ int game() {
 				
 				//continue
 				if (id1==100) {
-					//advance to next phase/turn
 					if (phase==3) {
-						//this code is also in phase 3's section
-						phase = 1;
-						do {
-							turn = turn + 1;
-							if (turn==7) turn = 1;
-						} while (!players[turn].isAlive());
-						cout << " - Player " << turn << "'s turn - " << endl;
+						advanceTurn();
 					}
 					else phase = phase + 1;
 					refreshMap();
@@ -1334,6 +1711,7 @@ int game() {
 								cout << "Both players lose 1 army" << endl << endl;
 								if (countries[id2].getArmies()==1) {
 									//conquered
+									bConquered = true;
 									countries[id2].setOwner(countries[id1].getOwner());
 									countries[id2].setArmies(attackers);
 									countries[id1].setArmies(countries[id1].getArmies()-attackers);
@@ -1351,6 +1729,7 @@ int game() {
 								if (get<0>(result)=='D'){
 									if (countries[id2].getArmies()==deaths) {
 										//conquered
+										bConquered = true;
 										countries[id2].setOwner(countries[id1].getOwner());
 										countries[id2].setArmies(attackers);
 										countries[id1].setArmies(countries[id1].getArmies()-attackers);
@@ -1420,12 +1799,8 @@ int game() {
 						}
 					}
 				}
-				phase = 1;
-				do {
-					turn = turn + 1;
-					if (turn==7) turn = 1;
-				} while (!players[turn].isAlive());
-				cout << " - Player " << turn << "'s turn - " << endl;			}
+				advanceTurn();
+			}
 		}
 	}
 
