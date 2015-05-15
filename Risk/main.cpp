@@ -1515,12 +1515,6 @@ void advanceTurn() {
 	if (bConquered) {
 		cardsInHands[turn].push(deck[deckPlace]);
 		deckPlace++;
-		cardsInHands[turn].push(deck[deckPlace]);
-		deckPlace++;
-		cardsInHands[turn].push(deck[deckPlace]);
-		deckPlace++;
-		cardsInHands[turn].push(deck[deckPlace]);
-		deckPlace++;
 	}
 	phase = 1;
 	do {
